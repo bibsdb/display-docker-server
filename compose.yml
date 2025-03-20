@@ -4,6 +4,9 @@ networks:
   app:
     driver: bridge
     internal: false
+  proxy:
+    driver: bridge
+    internal: true
 
 services:
   api:
@@ -11,6 +14,8 @@ services:
     restart: unless-stopped
     networks:
       - app
+    env_file:
+      - .env
     environment:
       # PHP config values
       - PHP_MAX_EXECUTION_TIME=${PHP_MAX_EXECUTION_TIME}
@@ -65,11 +70,15 @@ services:
     networks:
       - app
       - frontend
+    env_file:
+      - .env
     environment:
       - PHP_FPM_SERVER=api
       - NGINX_FPM_UPLOAD_MAX=${NGINX_FPM_UPLOAD_MAX}
     depends_on:
       - api
+    ports:
+      - "8080"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=frontend"
@@ -95,11 +104,15 @@ services:
     networks:
       - app
       - frontend
+    env_file:
+      - .env
     environment:
       - APP_ADMIN_CLIENT_PATH=${COMPOSE_ADMIN_CLIENT_PATH}
       - API_PATH=${API_PATH}
       - APP_TOUCH_BUTTON_REGIONS=${APP_TOUCH_BUTTON_REGIONS}
       - APP_REJSEPLANEN_API_KEY=${APP_REJSEPLANEN_API_KEY}
+    ports:
+      - "8080"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=frontend"
@@ -118,6 +131,8 @@ services:
     networks:
       - app
       - frontend
+    env_file:
+      - .env
     environment:
       - APP_SCREEN_CLIENT_PATH=${COMPOSE_SCREEN_CLIENT_PATH:?err}
       - APP_API_ENDPOINT=${APP_API_ENDPOINT:?err}
@@ -127,6 +142,8 @@ services:
       - APP_DATA_PULL_INTERVAL=${APP_DATA_PULL_INTERVAL}
       - APP_SCHEDULING_INTERVAL=${APP_SCHEDULING_INTERVAL}
       - APP_DEBUG=${APP_DEBUG}
+    ports:
+      - "8080"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=frontend"
@@ -144,3 +161,53 @@ services:
     restart: unless-stopped
     networks:
       - app
+
+  mariadb:
+    image: 'mariadb:lts'
+    restart: unless-stopped
+    networks:
+      - app
+    env_file:
+      - .env
+    environment:
+      - MARIADB_DATABASE=${MARIADB_DATABASE}
+      - MARIADB_USER=${MARIADB_USER}
+      - MARIADB_PASSWORD=${MARIADB_PASSWORD}
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+    ports:
+      - '3306'
+    volumes:
+      - mariadb:/var/lib/mysql:rw
+
+  traefik:
+    image: traefik:v3.2
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # Dashboard
+    volumes:
+      - $PWD/traefik/ssl:/certs:ro
+      - $PWD/traefik/traefik.yml:/traefik.yml:ro
+      - $PWD/traefik/dynamic-conf.yaml:/config/dynamic-conf.yaml:ro
+    networks:
+      - frontend
+      - proxy
+
+  socket-proxy:
+    image: itkdev/docker-socket-proxy
+    user: root
+    container_name: socket-proxy
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      CONTAINERS: 1
+    networks:
+      - proxy
+      
+volumes:
+    mariadb:
