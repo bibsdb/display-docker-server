@@ -15,6 +15,7 @@ help: ## Display a list of the public targets
 	@grep -E -h "^\w.*:.*##" $(MAKEFILE_LIST) | sed -e 's/\(.*\):.*##\(.*\)/\1	\2/'
 
 install: ## Install the project.
+	$(MAKE) _show_preinstall_tasks
 	$(MAKE) _dc_compile
 
 	@echo "Installing"
@@ -37,9 +38,7 @@ install: ## Install the project.
 
 	@echo "CREATE AN ADMIN USER. CHOOSE THE TENANT YOU JUST CREATED."
 	$(MAKE) user_add
-
 	$(MAKE) _show_notes
-
 
 reinstall: ## Reinstall from scratch. Removes the database, all containers and volumes.
 	$(MAKE) down
@@ -85,6 +84,25 @@ cc: ## Clear the cache
 # =============================================================================
 # These targets are usually not run manually.
 
+
+_show_preinstall_tasks:
+	@echo ""
+	@echo "===================================================="
+	@echo "Pre-installation Tasks"
+	@echo "===================================================="
+	@echo "Complete the following pre-install tasks before continuing."
+	@echo "===================================================="
+	@echo ""
+	@echo "- Copy .env.example to .env.docker.local"
+	@echo "- In .env.docker.local provide your own configuration settings."
+	@echo "- Copy mariadb/.env.database.example to mariadb/.env.database.local."
+	@echo "- In mariadb/.env.database.local provide your own configuration settings."
+	@echo "- Copy your SSL certificate files (docker.crt and docker.key) to the ssl-folder"
+	@echo ""
+	@echo "Have you completed the above pre-install tasks? (yes/no)"
+	@read answer && case $$answer in [Yy][Ee][Ss]) ;; *) echo "Please complete the pre-install tasks before continuing."; exit 1;; esac
+
+
 _show_notes:
 	@echo ""
 	@echo "===================================================="
@@ -97,6 +115,6 @@ _show_notes:
 	
 _dc_compile:
 	docker compose --env-file .env.docker.local --env-file mariadb/.env.database.local -f docker-compose.server.yml -f docker-compose.mariadb.yml -f docker-compose.traefik.yml config > docker-compose.yml
-	
+
 
 
